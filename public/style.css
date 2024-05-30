@@ -1,0 +1,23 @@
+body {
+    background-color: rgb(178, 190, 181);
+}
+
+.jheader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+h1 {
+    text-align: left;
+}
+
+.dflex2 {
+    background-color: #007500;
+}
+
+
+.toast-body {
+    color: white
+}
+

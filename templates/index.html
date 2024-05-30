@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% block head %}
+    <title>My Notes</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+{% endblock %}
+{% block body %}
+    <div class="container">
+    </br></br>
+    <div class="jheader">
+        <h1>My Notes</h1>
+
+        <!-- Button trigger modal for adding notes -->
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#noteModal">
+            Add Note
+        </button>
+    </div></br>
+        <!-- Add Note Modal -->
+        <div class="modal fade" id="noteModal" tabindex="-1" aria-labelledby="noteModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="noteModalLabel">Add New Note</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="noteForm">
+                            <div class="mb-3">
+                                <label for="noteInput" class="form-label">Note:</label>
+                                <textarea name="note" id="noteInput" class="form-control" cols="40" rows="2"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Add Note</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Note Modal -->
+        <div class="modal fade" id="editNoteModal" tabindex="-1" aria-labelledby="editNoteModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editNoteModalLabel">Edit Note</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editNoteForm">
+                            <input type="hidden" name="note_id" id="editNoteId">
+                            <div class="mb-3">
+                                <label for="editNoteInput" class="form-label">Note:</label>
+                                <textarea name="note" id="editNoteInput" class="form-control" cols="40" rows="2"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Update Note</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div class="position-fixed top-0 end-0 p-3" style="z-index: 11">
+            <div id="toastContainer"></div>
+        </div>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Note</th>
+                    <th>Date Added</th>
+                    <th>Date Updated</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="noteTableBody">
+                {% for note in notes %}
+                    <tr id="noteRow{{ note.id }}">
+                        <td>{{ note.note }}</td>
+                        <td>{{ note.date_added.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        {% if note.date_updated %}
+                            <td>{{ note.date_updated.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        {% else %}
+                            <td></td>
+                        {% endif %}
+                        <td>
+                            <div class="d-flex justify-content-end">
+                                <a href="#" class="btn btn-danger delete-note-btn" data-id="{{ note.id }}">Delete</a>
+                                <button class="btn btn-primary edit-note-btn ms-2" data-id="{{ note.id }}" data-note="{{ note.note }}">Edit</button>
+                            </div>
+                        </td>
+                        
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Function to show toast
+            function showToast(message, type) {
+                var toastId = 'toast' + Date.now();
+                var toastHtml = `
+                    <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+                        <div class="d-flex dflex2">
+                            <div class="toast-body">
+                                ${message}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                    </div>`;
+                $('#toastContainer').append(toastHtml);
+                var toastElement = new bootstrap.Toast(document.getElementById(toastId));
+                toastElement.show();
+                toastElement._element.addEventListener('hidden.bs.toast', function () {
+                    $(toastElement._element).remove();
+                });
+            }
+    
+            // Show toast if the flag is set in local storage
+            if (localStorage.getItem('showAddToast') === 'true') {
+                showToast('Note added successfully.', 'success');
+                localStorage.removeItem('showAddToast');
+            }
+            if (localStorage.getItem('showUpdateToast') === 'true') {
+                showToast('Note updated successfully.', 'success');
+                localStorage.removeItem('showUpdateToast');
+            }
+            if (localStorage.getItem('showDeleteToast') === 'true') {
+                showToast('Note deleted successfully.', 'success');
+                localStorage.removeItem('showDeleteToast');
+            }
+    
+            // Add Note Form submission
+            $('#noteForm').on('submit', function(event) {
+                event.preventDefault();
+                var noteData = $(this).serialize();
+                
+                $.post('#', noteData, function(response) {
+                    if (response.success) {
+                        localStorage.setItem('showAddToast', 'true');
+                        location.reload();
+                    } else {
+                        showToast(response.error, 'danger');
+                    }
+                });
+            });
+    
+            // Edit Note Button click
+            $(document).on('click', '.edit-note-btn', function() {
+                var noteId = $(this).data('id');
+                var noteText = $(this).data('note');
+                $('#editNoteId').val(noteId);
+                $('#editNoteInput').val(noteText);
+                $('#editNoteModal').modal('show');
+            });
+    
+            // Edit Note Form submission
+            $('#editNoteForm').on('submit', function(event) {
+                event.preventDefault();
+                var noteId = $('#editNoteId').val();
+                var noteData = $(this).serialize();
+                $.post('/edit/' + noteId, noteData, function(response) {
+                    if (response.success) {
+                        localStorage.setItem('showUpdateToast', 'true');
+                        location.reload();
+                    } else {
+                        showToast(response.error, 'danger');
+                    }
+                });
+            });
+    
+            // Delete Note Button click
+            $(document).on('click', '.delete-note-btn', function(event) {
+                event.preventDefault();
+                var noteId = $(this).data('id');
+                $.ajax({
+                    url: '/delete/' + noteId,
+                    type: 'GET',
+                    success: function(response) {
+                        localStorage.setItem('showDeleteToast', 'true');
+                        location.reload();
+                    },
+                    error: function(response) {
+                        showToast('Error deleting note.', 'danger');
+                    }
+                });
+            });
+        });
+    </script>
+    
+
+{% endblock %}
